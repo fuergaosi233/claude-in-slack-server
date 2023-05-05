@@ -1,3 +1,6 @@
+import json
+from sched import Event
+import string
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -90,6 +93,7 @@ async def hello_command(ack, body):
 
 @slack_app.event("message")
 async def event_message(say, event, message):
+    print(event)
     if message.get('subtype') == 'message_changed':
         user_id = message['message']['parent_user_id']
         user_ts = message['message']['thread_ts']
@@ -113,6 +117,7 @@ async def conversation(request_data: ConversationRequest, request: Request, resp
         .get('Authorization', '@') \
         .removeprefix('Bearer ') \
         .split('@', 1)
+    streamEnable = request.headers.get('X-Stream-Enable', 'false').lower() == 'true'
     if not access_token:
         response.status_code = status.HTTP_403_FORBIDDEN
         return ConversationResponse(error="You need to provide CHANNEL_ID@ACCESS_TOKEN in Authorization header.")
@@ -144,7 +149,7 @@ async def conversation(request_data: ConversationRequest, request: Request, resp
         message_mappings[f"{user_id}-{user_ts}"] = asyncio.Queue()
 
     queue: asyncio.Queue = message_mappings[f"{user_id}-{user_ts}"]
-
+ 
     async def sse_emitter():
         try:
             yield {
@@ -159,7 +164,7 @@ async def conversation(request_data: ConversationRequest, request: Request, resp
                 message = message.strip()
                 message = emoji.emojize(message, variant="emoji_type", language='alias')
                 message = html.unescape(message)
-                yield {
+                event = {
                     'event': 'data',
                     'data': ConversationResponse(
                         message=Message(
@@ -171,6 +176,7 @@ async def conversation(request_data: ConversationRequest, request: Request, resp
                         error=None,
                     ).json()
                 }
+                yield event
                 queue.task_done()
                 if not message.endswith('_Typing…_'):
                     yield {
@@ -182,8 +188,16 @@ async def conversation(request_data: ConversationRequest, request: Request, resp
             with contextlib.suppress(KeyError):
                 if queue.empty():
                     del message_mappings[f"{user_id}-{user_ts}"]
-
-    return EventSourceResponse(sse_emitter())
+    if streamEnable:
+        return EventSourceResponse(sse_emitter())
+    else:
+        # Wait for the queue to be empty
+        result_data = ""
+        async for i in sse_emitter(): # type: ignore
+            if i["data"] == "[DONE]":
+                break
+            result_data = i['data']
+        return json.loads(result_data)
 
 
 @fastapi_app.on_event("startup")
