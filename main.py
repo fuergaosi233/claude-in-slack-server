@@ -32,8 +32,8 @@ SLACK_CLIENT_ID = os.environ["SLACK_OAUTH_CLIENT_ID"]
 SLACK_CLIENT_SECRET = os.environ["SLACK_OAUTH_CLIENT_SECRET"]
 SLACK_REDIRECT_URI = os.environ["SLACK_OAUTH_REDIRECT_URI"]
 
-APP_HOST = os.environ.get("APP_HOST", "0.0.0.0")
-APP_PORT = os.environ.get("APP_PORT", "3000")
+APP_HOST = os.environ.get("HOST", "0.0.0.0")
+APP_PORT = os.environ.get("PORT", "3000")
 
 async_client = httpx.AsyncClient()
 fastapi_app = FastAPI()
