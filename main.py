@@ -23,7 +23,7 @@ from slack_bolt.async_app import AsyncApp
 from slack_bolt.adapter.socket_mode.async_handler import AsyncSocketModeHandler
 from sse_starlette.sse import EventSourceResponse
 
-from model import ConversationResponse, ConversationRequest, Message, Content, Author
+from model import ConversationResponse, ConversationRequest
 from secure import encrypt_token, decrypt_token
 
 import html
@@ -127,7 +127,7 @@ async def conversation(request_data: ConversationRequest, request: Request, resp
     # except ValueError:
     #     response.status_code = status.HTTP_403_FORBIDDEN
     #     return ConversationResponse(error="Invalid ACCESS_TOKEN.")
-    prompt = ''.join(request_data.messages[0].content.parts)
+    prompt = ''.join(request_data.prompt)
     payload = {
         "text": f'<@claude> {prompt}',
         "channel": channel,
@@ -167,11 +167,7 @@ async def conversation(request_data: ConversationRequest, request: Request, resp
                 event = {
                     'event': 'data',
                     'data': ConversationResponse(
-                        message=Message(
-                            id=str(uuid.uuid4()),
-                            role="assistant",
-                            content=Content(content_type="text", parts=[message.removesuffix('\n\n_Typing…_')]),
-                            author=Author(role="assistant"), ),
+                        message=message.removesuffix('\n\n_Typing…_'),
                         conversation_id=user_ts,
                         error=None,
                     ).json()
